@@ -1,8 +1,8 @@
-
 module project2(
 	input CLK, reset, start,
 	output reg [0:27] led,
 	output reg [2:0] life,
+	output reg beep,
 	input left, right,
 	input throw,
 	input show_two_row,
@@ -11,7 +11,7 @@ module project2(
 	output reg [0:3] COM,
 	input highSpeed
 );
-
+	
 	reg [7:0]blockFirst =  8'b11111111;
 	reg [7:0]blockSecond =  8'b00000000;
 	reg [0:7]barrier = 8'b00000011;
@@ -27,6 +27,7 @@ module project2(
 	integer horizonPosition;
 
 	reg handsOn; 				// bool，紀錄球現在丟出去了沒
+	reg gameStart;
 	reg gameOverFlag;
 	reg gameFinishFlag;
 	
@@ -45,6 +46,8 @@ module project2(
 
 		life = 3'b111;
 		
+		beep <= 0;
+		
 		plat_position = 3'b010;		// 預設在 x=2 的位置
 		ball_position = 3'b011;		// 預設在 x=3 的位置
 		ball_y_position = 3'b010;	// 預設在 y=1 的位置
@@ -55,6 +58,7 @@ module project2(
 		upPosition = 1;				// 預設為 向上
 		horizonPosition = 0;			// 預設為 正中間方向
 		
+		gameStart = 0;
 		gameOverFlag = 0;
 		gameFinishFlag = 0;
 		
@@ -65,35 +69,41 @@ module project2(
 	
 
 	// 開始所有除頻器
-	divfreq F(CLK, divclk);
+	divfreq F(CLK, divclk,blockFirst,blockSecond);
 	buttondivfreq BT(CLK, highSpeed, buttonclk);
-
-	
 	
 	integer ballTime;
 	integer doubleTime;
 	// 判斷 所有操作
 	always @(posedge buttonclk)
 	begin
+		if ((gameOverFlag == 0 || gameFinishFlag == 0) && gameStart == 0) begin
+			if(show_two_row)
+				blockSecond = 8'b11111111;
+			else
+				blockSecond = 8'b00000000;
+		end	
 		if(start)
 		begin
-			
+			beep <= 0;
 			if(reset)
 			begin
 				if(gameOverFlag || gameFinishFlag)
 				begin
 					blockFirst =  8'b11111111;
-					if(show_two_row)
+					/*if(show_two_row)
 						blockSecond = 8'b11111111;
 					else
-						blockSecond = 8'b00000000;
-
+						blockSecond = 8'b00000000;*/
+					count_digit <= 4'b0;
+					count_ten = 4'b0;
+					beep <= 0;
 					life = 3'b111;
 					gameOverFlag = 0;
 					gameFinishFlag = 0;
 					
 				end
-
+				beep <= 0;
 				plat_position <= 3'b010;		// 預設在 x=2 的位置
 				ball_position <= 3'b011;		// 預設在 x=3 的位置
 				ball_y_position <= 3'b010;	// 預設在 y=1 的位置
@@ -104,6 +114,7 @@ module project2(
 				
 				showBonus = 0;
 				ball_is_on_the_gronud = 0;
+				
 				
 			end
 
@@ -126,9 +137,12 @@ module project2(
 					
 			// 判斷 丟出球
 			if(throw)
-				if(handsOn)
-				begin
-					handsOn = 0;
+				begin 
+					gameStart = 1;
+					if(handsOn)
+					begin
+						handsOn = 0;
+					end
 				end
 				
 		
@@ -217,11 +231,15 @@ module project2(
 							ball_y_position <= ball_y_position-1;
 							showBonus = 0;
 							ball_is_on_the_gronud = 1;
+							gameStart = 1;
 							
 							life = life*2;		// 扣除生命值
 							if(life==3'b000)
-								gameOverFlag = 1;
-							
+								begin
+									gameOverFlag = 1;
+									gameStart = 0;
+								end
+							else gameStart = 1;
 						end
 
 
@@ -246,6 +264,7 @@ module project2(
 					if(ball_y_position==6)
 						if(blockSecond[ball_position]==1)
 						begin
+							beep <= 1;
 							count_digit <= count_digit + 1'b1;
 							if(count_digit == 4'b1001)
 							begin
@@ -266,12 +285,18 @@ module project2(
 							if(upPosition) ball_y_position <= ball_y_position +1;
 							else ball_y_position <= ball_y_position -1;
 							//判斷是否結束
-							if(blockSecond == 8'b00000000 && blockFirst == 8'b000000000) gameFinishFlag = 1;
+							if(blockSecond == 8'b00000000 && blockFirst == 8'b000000000)
+							begin
+								gameFinishFlag = 1;
+								gameStart = 0;
+							end
+							else gameStart = 1;
 						end
 					// // 判斷特殊狀態 ， 撞到第二排磚塊
 					if(ball_y_position==7)
 						if(blockFirst[ball_position]==1)
 						begin
+							beep <= 1;
 							count_digit <= count_digit + 1'b1;
 							if(count_digit == 4'b1001)
 							begin
@@ -288,7 +313,11 @@ module project2(
 							ball_position <= ball_position + horizonPosition;
 							ball_y_position <= ball_y_position -1;
 							//判斷是否結束
-							if(blockSecond == 8'b00000000 && blockFirst == 8'b00000000) gameFinishFlag = 1;
+							if(blockSecond == 8'b00000000 && blockFirst == 8'b00000000)
+							begin 
+								gameFinishFlag = 1;
+								gameStart = 0;
+							end
 						end
 						// 障礙物右移
 						if(ball_is_on_the_gronud == 0)
@@ -325,6 +354,7 @@ module project2(
 					// Bonus ball 撞到第一排磚塊
 					if((Bonus_y == 6 && blockSecond[Bonus_x] == 1))
 					begin
+						beep <= 1;
 						count_digit <= count_digit + 1'b1;
 						if(count_digit == 4'b1001)
 						begin
@@ -338,6 +368,7 @@ module project2(
 					// Bonus ball 撞到第二排磚塊
 					if((Bonus_y == 7 && blockFirst[Bonus_x] == 1))
 					begin
+						beep <= 1;
 						count_digit <= count_digit + 1'b1;
 						if(count_digit == 4'b1001)
 						begin
@@ -368,7 +399,6 @@ module project2(
 		
 		// 設定這次要畫第 n 行
 		led[24:26] = row;
-		
 		
 		// 如果 gameOverFlag ==1就畫圖
 		if(gameOverFlag)
@@ -426,20 +456,22 @@ module project2(
 
 			//開始畫磚塊
 			led[16:23] = {~blockFirst[row], ~blockSecond[row], 6'b111111};
-			
+			//led[0:1] = {~blockFirst[row], ~blockSecond[row]};
+			//led[8] = 0;
+
 			// 畫 Bonus ball
 			if(showBonus == 1)
 				if(row==Bonus_x)
 				begin
 					case(Bonus_y)
-						3'b000: begin led[7] = 0 ; led[23] = 0; end
-						3'b001: begin led[6] = 0 ; led[22] = 0; end
-						3'b010: begin led[5] = 0 ; led[21] = 0; end
-						3'b011: begin led[4] = 0 ; led[20] = 0; end
-						3'b100: begin led[3] = 0 ; led[19] = 0; end
-						3'b101: begin led[2] = 0 ; led[18] = 0; end
-						3'b110: begin led[1] = 0 ; led[17] = 0; end
-						3'b111: begin led[0] = 0 ; led[16] = 0; end
+						3'b000: begin led[15] = 0 ; led[23] = 0; end
+						3'b001: begin led[14] = 0 ; led[22] = 0; end
+						3'b010: begin led[13] = 0 ; led[21] = 0; end
+						3'b011: begin led[12] = 0 ; led[20] = 0; end
+						3'b100: begin led[11] = 0 ; led[19] = 0; end
+						3'b101: begin led[10] = 0 ; led[18] = 0; end
+						3'b110: begin led[9] = 0 ; led[17] = 0; end
+						3'b111: begin led[8] = 0 ; led[16] = 0; end
 					endcase
 				end
 			
