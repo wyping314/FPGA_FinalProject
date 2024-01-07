@@ -6,6 +6,7 @@ module project2(
     input left, right,
     input throw,
     input show_two_row,
+    output testLED,
     output reg a,b,c,d,e,f,g,
     output reg [0:3] COM,
     input highSpeed
@@ -19,13 +20,13 @@ module project2(
     reg [2:0]ball_position;	// 球  位置
     reg [2:0]ball_y_position; // 球 y 座標
 
-    reg [3:0]count_digit = 4'b0000;	//個位數分數
-    reg [3:0]count_ten = 4'b0000; //十位數分數
+    reg [3:0]count_digit = 4'b000;	//個位數分數
+    reg [3:0]count_ten = 4'b0000;			//十位數分數
     
     reg upPosition;
     integer horizonPosition;
 
-    reg handsOn; // bool，紀錄球現在丟出去了沒
+    reg handsOn; 				// bool，紀錄球現在丟出去了沒
     reg gameStart;
     reg gameOverFlag;
     reg gameFinishFlag;
@@ -68,7 +69,7 @@ module project2(
     
 
     // 開始所有除頻器
-    divfreq F(CLK, divclk);
+    divfreq F(CLK, divclk,blockFirst,blockSecond);
     buttondivfreq BT(CLK, highSpeed, buttonclk);
     
     integer ballTime;
@@ -94,7 +95,7 @@ module project2(
                         blockSecond = 8'b11111111;
                     else
                         blockSecond = 8'b00000000;*/
-                    count_digit <= 4'b0;
+                    count_digit = 4'b0;
                     count_ten = 4'b0;
                     beep <= 0;
                     life = 3'b111;
@@ -264,10 +265,10 @@ module project2(
                         if(blockSecond[ball_position]==1)
                         begin
                             beep <= 1;
-                            count_digit <= count_digit + 1'b1;
+                            count_digit = count_digit + 1'b1;
                             if(count_digit == 4'b1001)
                             begin
-                                count_digit <= 4'b0;
+                                count_digit = 4'b0;
                                 count_ten = count_ten + 1'b1;
                             end
                             blockSecond[ball_position] = 0;
@@ -296,10 +297,10 @@ module project2(
                         if(blockFirst[ball_position]==1)
                         begin
                             beep <= 1;
-                            count_digit <= count_digit + 1'b1;
+                            count_digit = count_digit + 1'b1;
                             if(count_digit == 4'b1001)
                             begin
-                                count_digit <= 4'b0;
+                                count_digit = 4'b0;
                                 count_ten = count_ten + 1'b1;
                             end
                             blockFirst[ball_position] = 0;
@@ -354,10 +355,10 @@ module project2(
                     if((Bonus_y == 6 && blockSecond[Bonus_x] == 1))
                     begin
                         beep <= 1;
-                        count_digit <= count_digit + 1'b1;
+                        count_digit = count_digit + 1'b1;
                         if(count_digit == 4'b1001)
                         begin
-                            count_digit <= 4'b0;
+                            count_digit = 4'b0;
                             count_ten = count_ten + 1'b1;
                         end
                         blockSecond[Bonus_x] = 0;
@@ -368,10 +369,10 @@ module project2(
                     if((Bonus_y == 7 && blockFirst[Bonus_x] == 1))
                     begin
                         beep <= 1;
-                        count_digit <= count_digit + 1'b1;
+                        count_digit = count_digit + 1'b1;
                         if(count_digit == 4'b1001)
                         begin
-                            count_digit <= 4'b0;
+                            count_digit = 4'b0;
                             count_ten = count_ten + 1'b1;
                         end
                         blockFirst[Bonus_x] = 0;
@@ -481,20 +482,19 @@ module project2(
                 led[11] = 0;
             end
             
-
-            // 顯示分數
-            if(count_digit_enable == 0)
-            begin
-                count_digit_enable = 1;
-                COM = 4'b1110;
-            end
-            else
-            begin
-                count_digit_enable = 0;
-                COM = 4'b1101;
-            end
         end
-
+        
+        // 顯示分數
+        if(count_digit_enable == 0)
+        begin
+            count_digit_enable = 1;
+            COM = 4'b1110;
+        end
+        else
+        begin
+            count_digit_enable = 0;
+            COM = 4'b1101;
+        end
         
         // 顯示個位
         if(count_digit_enable == 1)
@@ -533,7 +533,7 @@ endmodule
 
 
 // 顯示用的除頻器
-module divfreq(input CLK, output reg CLK_div);
+module divfreq(input CLK, output reg CLK_div,input blockFirst,input blockSecond);
     reg[24:0] Count;
     always @(posedge CLK)
     begin
